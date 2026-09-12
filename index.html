@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Viking — Mantenimiento [DEV]</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#B71C1C">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;color:#111;min-height:100vh}
+:root{--red:#B71C1C;--amber:#E65100;--green:#1B5E20;--border:#ddd;--surface:#fff;--r:8px}
+
+/* TOPBAR */
+.topbar{background:var(--red);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.topbar h1{font-size:15px;font-weight:700;flex:1}
+.topbar .sub{font-size:10px;opacity:.8}
+
+/* CARDS */
+.card{background:var(--surface);border-radius:var(--r);box-shadow:0 1px 4px rgba(0,0,0,.08);margin:12px;overflow:hidden}
+.card-head{background:var(--red);color:#fff;padding:10px 14px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.card-body{padding:12px 14px}
+
+/* FORM */
+.fg{margin-bottom:10px}
+.fg label{display:block;font-size:11px;font-weight:700;color:#666;text-transform:uppercase;margin-bottom:4px}
+.fg input,.fg select,.fg textarea{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;background:#fff;-webkit-appearance:none}
+.fg textarea{min-height:70px;resize:vertical}
+.fg input:focus,.fg select:focus,.fg textarea:focus{outline:none;border-color:var(--red)}
+.fg .readonly{padding:10px 12px;background:#f8f8f8;border-radius:var(--r);font-size:13px;color:#444;border:1.5px solid var(--border)}
+.num-badge{font-family:monospace;font-size:15px;font-weight:700;color:var(--red);padding:8px 12px;background:#fff5f5;border-radius:var(--r);border:1.5px solid #ffcdd2;display:inline-block;margin-bottom:10px}
+
+/* BUTTONS */
+.btn{display:block;width:100%;padding:13px;border:none;border-radius:var(--r);font-size:15px;font-weight:700;cursor:pointer;text-align:center;margin-bottom:8px}
+.btn-p{background:var(--red);color:#fff}
+.btn-s{background:#f5f5f5;color:#333;border:1.5px solid var(--border)}
+.btn-g{background:#1B5E20;color:#fff}
+.btn-sm{display:inline-block;width:auto;padding:6px 12px;font-size:12px}
+
+/* MATERIAL LIST */
+.mat-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#f8f8f8;border-radius:6px;margin-bottom:6px}
+.mat-item .desc{flex:1;font-size:13px}
+.mat-item .qty{font-size:12px;color:#666;white-space:nowrap}
+.mat-del{background:none;border:none;color:#B71C1C;font-size:18px;cursor:pointer;padding:0 4px}
+
+/* TABS */
+.tabs{display:flex;background:#fff;border-bottom:2px solid var(--border);position:sticky;top:52px;z-index:90}
+.tab{flex:1;padding:10px;text-align:center;font-size:12px;font-weight:700;color:#888;border-bottom:3px solid transparent;margin-bottom:-2px;cursor:pointer}
+.tab.active{color:var(--red);border-color:var(--red)}
+.panel{display:none}.panel.active{display:block}
+
+/* STATE */
+.estado-badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700}
+.badge-pending{background:#fff8e1;color:#E65100}
+.badge-complete{background:#e8f5e9;color:#1B5E20}
+
+/* NOTICE */
+.notice{margin:16px;padding:14px;background:#fff8e1;border-radius:var(--r);border-left:4px solid var(--amber);font-size:13px;color:#333}
+.notice b{display:block;margin-bottom:4px;color:var(--amber)}
+
+.bottom{height:80px}
+.actions{position:fixed;bottom:0;left:0;right:0;background:#fff;padding:10px 14px;box-shadow:0 -2px 8px rgba(0,0,0,.1);display:flex;gap:8px}
+.actions .btn{margin:0}
+</style>
+</head>
+<body>
+<div style="background:#7B4F00;color:#fff;text-align:center;padding:6px 12px;font-size:11.5px;font-weight:700">🧪 DEV — sincroniza contra una carpeta de Drive separada de producción</div>
+
+<div class="topbar">
+  <div>
+    <div class="h1" style="font-size:15px;font-weight:700">🔧 Mantenimiento</div>
+    <div class="sub">Viking Security Systems</div>
+  </div>
+</div>
+
+<div id="panel-inicio" class="panel active">
+  <div class="notice">
+    <b>¿Cómo usar esta app?</b>
+    1. Traé el registro pendiente desde Drive (o importalo a mano).<br>
+    2. Completá los datos en campo.<br>
+    3. Subí el registro completado a Drive — Viking VSS lo toma solo.
+  </div>
+  <div class="card">
+    <div class="card-head">☁️ Google Drive</div>
+    <div class="card-body">
+      <button class="btn btn-p" onclick="buscarPendienteDrive()">☁️ Buscar pendiente en Drive</button>
+      <p id="drive-status" style="font-size:12px;color:#666;margin-top:10px">➖ Sin conectar</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head">Cargar registro (alternativa manual)</div>
+    <div class="card-body">
+      <div class="fg">
+        <label>Importar JSON de mantenimiento</label>
+        <input type="file" accept=".json" onchange="importarRegistro(this)" style="padding:8px;font-size:13px">
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="panel-form" class="panel">
+  <div class="card">
+    <div class="card-head">📋 Datos del registro</div>
+    <div class="card-body">
+      <div id="num-badge" class="num-badge"></div>
+      <div class="fg"><label>Cliente</label><div id="f-cliente" class="readonly"></div></div>
+      <div class="fg"><label>N° Serie sistema</label><div id="f-nserie" class="readonly"></div></div>
+      <div class="fg"><label>Modelo</label><div id="f-modelo" class="readonly"></div></div>
+      <div class="fg"><label>Tipo de mantenimiento</label><div id="f-tipo" class="readonly"></div></div>
+      <div class="fg"><label>Motivo del llamado</label><div id="f-motivo" class="readonly"></div></div>
+      <div class="fg"><label>Técnico</label><div id="f-tecnico" class="readonly"></div></div>
+      <div class="fg"><label>Garantía válida hasta</label><div id="f-garantia-vence" class="readonly"></div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">🔍 Diagnóstico y reparación</div>
+    <div class="card-body">
+      <div class="fg"><label>Falla detectada</label><textarea id="f-falla" placeholder="Describir la falla encontrada..."></textarea></div>
+      <div class="fg"><label>Reparación realizada</label><textarea id="f-reparacion" placeholder="Describir lo que se hizo..."></textarea></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">📦 Materiales</div>
+    <div class="card-body">
+      <div id="mat-list"></div>
+      <button class="btn btn-s btn-sm" onclick="mostrarSelectorMat()" style="margin-bottom:10px">➕ Agregar material</button>
+      <div class="fg">
+        <label>Material a facturar al cliente</label>
+        <div id="mat-facturar-list" style="margin-bottom:6px">
+          <p style="font-size:12px;color:#999">Agregá materiales arriba para marcarlos como facturables.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">📝 Cierre</div>
+    <div class="card-body">
+      <div class="fg"><label>En garantía</label>
+        <select id="f-garantia">
+          <option>No</option>
+          <option>Sí</option>
+        </select>
+      </div>
+      <div class="fg"><label>Costo mano de obra ($)</label><input type="number" id="f-costo" min="0" value="0"></div>
+      <div class="fg"><label>Observaciones</label><textarea id="f-obs" placeholder="Notas adicionales..."></textarea></div>
+    </div>
+  </div>
+
+  <div class="bottom"></div>
+  <div class="actions">
+    <button class="btn btn-s" onclick="goInicio()" style="flex:0 0 auto;width:auto;padding:13px 18px">← Inicio</button>
+    <button class="btn btn-p" onclick="subirCompletadoDrive()" style="flex:1">☁️ Subir a Drive</button>
+    <button class="btn btn-s" onclick="exportarRegistro()" style="flex:0 0 auto;width:auto;padding:13px 14px" title="Exportar como archivo">📤</button>
+  </div>
+</div>
+
+<!-- SELECTOR MATERIAL -->
+<div id="mat-selector" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;overflow-y:auto">
+  <div style="background:#fff;margin:20px;border-radius:var(--r);overflow:hidden">
+    <div style="background:var(--red);color:#fff;padding:12px 14px;font-size:13px;font-weight:700;display:flex;justify-content:space-between">
+      <span>Seleccionar componente</span>
+      <button onclick="cerrarSelectorMat()" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <div style="padding:12px">
+      <input type="text" id="q-mat" placeholder="🔍 Buscar..." oninput="filtrarMat()" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;margin-bottom:10px">
+      <div id="mat-options" style="max-height:50vh;overflow-y:auto"></div>
+      <div style="margin-top:10px">
+        <label style="font-size:11px;font-weight:700;color:#666;text-transform:uppercase">Cantidad</label>
+        <input type="number" id="mat-cant" min="1" value="1" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;margin-top:4px">
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="drive-sync.js"></script>
+<script>
+const SKEY='viking_mant_v1_dev';
+var registro = null;
+var catalogo = [];
+var materiales = [];
+var matSeleccionado = null;
+
+function save(){ localStorage.setItem(SKEY, JSON.stringify({registro,catalogo,materiales})); }
+
+function loadSaved(){
+  try{
+    var d=JSON.parse(localStorage.getItem(SKEY)||'null');
+    if(d&&d.registro){ registro=d.registro; catalogo=d.catalogo||[]; materiales=d.materiales||[]; mostrarForm(); }
+  }catch(e){}
+}
+
+function importarRegistro(input){
+  var file=input.files[0]; if(!file) return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var data=JSON.parse(e.target.result);
+      if(data.tipo!=='viking_mantenimiento'){alert('Archivo inválido.');return;}
+      registro=data.registro;
+      catalogo=data.catalogo||[];
+      materiales=registro.materiales?JSON.parse(JSON.stringify(registro.materiales)):[];
+      save();
+      mostrarForm();
+    }catch(err){alert('Error al leer el archivo: '+err.message);}
+  };
+  reader.readAsText(file);
+}
+
+function mostrarForm(){
+  document.getElementById('panel-inicio').classList.remove('active');
+  document.getElementById('panel-form').classList.add('active');
+  
+  document.getElementById('num-badge').textContent=registro.numero||'MNT-????';
+  document.getElementById('f-cliente').textContent=registro.cliente||'—';
+  document.getElementById('f-nserie').textContent=registro.nserie||'—';
+  document.getElementById('f-modelo').textContent=registro.modelo||'—';
+  document.getElementById('f-tipo').textContent=registro.tipo||'—';
+  document.getElementById('f-motivo').textContent=registro.motivo||'—';
+  document.getElementById('f-tecnico').textContent=registro.tecnico||'—';
+  document.getElementById('f-garantia-vence').textContent=registro.garantiaVence||'—';
+  
+  document.getElementById('f-falla').value=registro.falla||'';
+  document.getElementById('f-reparacion').value=registro.reparacion||'';
+  // matFacturar is now structured - handled via materiales.facturar flags
+  document.getElementById('f-garantia').value=registro.garantia||'No';
+  document.getElementById('f-costo').value=registro.costo||0;
+  document.getElementById('f-obs').value=registro.obs||'';
+  
+  renderMatList();
+}
+
+function goInicio(){
+  if(confirm('¿Volver al inicio? Los datos no guardados se perderán.')){
+    document.getElementById('panel-form').classList.remove('active');
+    document.getElementById('panel-inicio').classList.add('active');
+  }
+}
+
+function renderMatList(){
+  var el=document.getElementById('mat-list');
+  var elFact=document.getElementById('mat-facturar-list');
+  
+  if(!materiales.length){
+    el.innerHTML='<p style="font-size:12px;color:#999;margin-bottom:8px">Sin materiales cargados.</p>';
+    if(elFact) elFact.innerHTML='<p style="font-size:12px;color:#999">Agregá materiales arriba para marcarlos como facturables.</p>';
+    return;
+  }
+  
+  el.innerHTML=materiales.map(function(m,i){
+    var precio=parseFloat(m.costo)||0;
+    var subtotal=precio*m.cant;
+    return '<div class="mat-item">'+
+      '<div class="desc">'+m.desc+'</div>'+
+      '<div class="qty">x'+m.cant+(precio?' · $'+Math.round(subtotal).toLocaleString('es-AR'):'')+'</div>'+
+      '<button class="mat-del" onclick="quitarMat('+i+')">🗑️</button>'+
+    '</div>';
+  }).join('');
+
+  // Facturar checklist
+  if(elFact){
+    elFact.innerHTML=materiales.map(function(m,i){
+      var precio=parseFloat(m.costo)||0;
+      var subtotal=precio*m.cant;
+      var checked=m.facturar!==false;
+      return '<div style="display:flex;align-items:center;gap:10px;padding:8px;background:#f8f8f8;border-radius:6px;margin-bottom:6px">'+
+        '<input type="checkbox" id="fact-'+i+'" '+(checked?'checked':'')+' onchange="toggleFacturar('+i+')" style="width:18px;height:18px;cursor:pointer">'+
+        '<label for="fact-'+i+'" style="flex:1;font-size:13px;cursor:pointer">'+
+          '<strong>'+m.desc+'</strong> x'+m.cant+
+          (precio?'<br><span style="font-size:11px;color:#666">$'+precio.toLocaleString('es-AR')+' c/u = $'+Math.round(subtotal).toLocaleString('es-AR')+'</span>':'')+
+        '</label>'+
+      '</div>';
+    }).join('');
+  }
+}
+
+function toggleFacturar(idx){
+  if(materiales[idx]) materiales[idx].facturar=document.getElementById('fact-'+idx).checked;
+  save();
+}
+
+function quitarMat(i){
+  materiales.splice(i,1);
+  save();
+  renderMatList();
+}
+
+function mostrarSelectorMat(){
+  document.getElementById('mat-selector').style.display='block';
+  document.getElementById('q-mat').value='';
+  matSeleccionado=null;
+  filtrarMat();
+}
+
+function cerrarSelectorMat(){
+  document.getElementById('mat-selector').style.display='none';
+}
+
+function filtrarMat(){
+  var q=document.getElementById('q-mat').value.toLowerCase();
+  var lista=catalogo.filter(function(c){return !q||(c.desc||'').toLowerCase().includes(q)||(c.codigo||'').toLowerCase().includes(q);});
+  var el=document.getElementById('mat-options');
+  el.innerHTML=lista.map(function(c){
+    return '<div onclick="seleccionarMat('+c.id+')" style="padding:10px;border-bottom:1px solid #eee;cursor:pointer;background:'+(matSeleccionado===c.id?'#fff5f5':'#fff')+'">'+
+      '<div style="font-size:13px;font-weight:600">'+c.desc+'</div>'+
+      '<div style="font-size:11px;color:#666">'+c.codigo+'</div>'+
+    '</div>';
+  }).join('');
+}
+
+function seleccionarMat(id){
+  matSeleccionado=id;
+  filtrarMat();
+  var el=document.getElementById('mat-options');
+  var selected=el.querySelector('[onclick="seleccionarMat('+id+')"]');
+  if(selected) selected.scrollIntoView({block:'nearest'});
+  
+  var comp=catalogo.find(function(c){return c.id===id;});
+  if(!comp) return;
+  
+  var cant=parseInt(document.getElementById('mat-cant').value)||1;
+  materiales.push({compId:id,desc:comp.desc,codigo:comp.codigo,cant:cant,costo:comp.costo||0});
+  save();
+  renderMatList();
+  cerrarSelectorMat();
+}
+
+function exportarRegistro(){
+  if(!registro){alert('No hay registro cargado.');return;}
+  var completado=armarCompletado();
+  var json=JSON.stringify(completado.export_data,null,2);
+  var blob=new Blob([json],{type:'application/json'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;
+  a.download='mant_completado_'+completado.completado.numero+'.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  alert('✅ Registro exportado. Enviarlo a la app PC para importar.');
+}
+
+function armarCompletado(){
+  var completado=Object.assign({},registro,{
+    falla:document.getElementById('f-falla').value,
+    reparacion:document.getElementById('f-reparacion').value,
+    materiales:materiales,
+    matFacturar:materiales.filter(function(m){return m.facturar!==false;}).map(function(m){return {desc:m.desc,cant:m.cant,costo:parseFloat(m.costo)||0,subtotal:(parseFloat(m.costo)||0)*m.cant};}),
+    garantia:document.getElementById('f-garantia').value,
+    costo:document.getElementById('f-costo').value||'0',
+    obs:document.getElementById('f-obs').value,
+    estado:'Completado',
+    fechaCompletado:new Date().toISOString().slice(0,10)
+  });
+  var export_data={
+    tipo:'viking_mantenimiento',
+    version:'1.0',
+    registro:completado,
+    clienteId:registro.clienteId,
+    mantIdx:registro.mantIdx
+  };
+  return {completado:completado, export_data:export_data};
+}
+
+// DRIVE SYNC
+function setDriveStatus(txt, color){
+  var el=document.getElementById('drive-status');
+  if(el){ el.textContent=txt; el.style.color=color||'#666'; }
+}
+function buscarPendienteDrive(){
+  setDriveStatus('☁️ Buscando...', '#0D47A1');
+  DriveSync.conectar();
+  var intentar=function(){
+    if(!DriveSync.conectado){ setDriveStatus('➖ Conectando con Google...', '#666'); return; }
+    DriveSync.bajarArchivo('pendiente.json').then(function(data){
+      if(!data){ setDriveStatus('➖ No hay ningún pendiente en Drive todavía.', '#666'); return; }
+      if(data.tipo!=='viking_mantenimiento'){ setDriveStatus('⚠️ Archivo inválido en Drive.', '#B71C1C'); return; }
+      registro=data.registro;
+      catalogo=data.catalogo||[];
+      materiales=registro.materiales?JSON.parse(JSON.stringify(registro.materiales)):[];
+      save();
+      mostrarForm();
+      setDriveStatus('✅ Pendiente cargado: '+(registro.numero||''), '#1B5E20');
+    }).catch(function(e){ setDriveStatus('⚠️ Error: '+e.message, '#B71C1C'); });
+  };
+  if(DriveSync.conectado) intentar();
+  else DriveSync.onToken(intentar);
+}
+function subirCompletadoDrive(){
+  if(!registro){ alert('No hay registro cargado.'); return; }
+  var completado=armarCompletado();
+  setDriveStatus('☁️ Subiendo...', '#0D47A1');
+  DriveSync.conectar();
+  var intentar=function(){
+    if(!DriveSync.conectado){ setDriveStatus('➖ Conectando con Google...', '#666'); return; }
+    DriveSync.subirArchivo('completado.json', completado.export_data)
+      .then(function(){ alert('✅ Registro subido a Drive. Viking VSS lo va a tomar solo.'); setDriveStatus('✅ Subido: '+new Date().toLocaleTimeString('es-AR'), '#1B5E20'); })
+      .catch(function(e){ setDriveStatus('⚠️ Error: '+e.message, '#B71C1C'); alert('Error al subir: '+e.message); });
+  };
+  if(DriveSync.conectado) intentar();
+  else DriveSync.onToken(intentar);
+}
+DriveSync.init(function(){ setDriveStatus('✅ Drive conectado', '#1B5E20'); });
+
+// Auto-load on start
+loadSaved();
+</script>
+</body>
+</html>
