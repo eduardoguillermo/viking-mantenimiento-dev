@@ -1,10 +1,10 @@
 {
-  "name": "Viking Mantenimiento",
-  "short_name": "VSS Mant",
-  "start_url": "/viking-mantenimiento/",
+  "name": "Viking Mantenimiento [DEV]",
+  "short_name": "VSS Mant DEV",
+  "start_url": "/viking-mantenimiento-dev/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#B71C1C",
+  "theme_color": "#7B4F00",
   "icons": [
     {"src": "icon-192x192.png", "sizes": "192x192", "type": "image/png"},
     {"src": "icon-512x512.png", "sizes": "512x512", "type": "image/png"}
